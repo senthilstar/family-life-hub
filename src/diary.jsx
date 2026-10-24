@@ -5,11 +5,11 @@ export function DiaryView({ diary, persist, toast }){
   const [date,setDate]=useState(todayStr()); const [text,setText]=useState(diary[todayStr()]||"");
   const [dirty,setDirty]=useState(false); const [q,setQ]=useState("");
   const cur=useRef({date,text,dirty}); cur.current={date,text,dirty};
-  const saveNow=(d=date,t=text)=>{ const n={...diary}; if(t.trim()) n[d]=t; else delete n[d]; persist(n); setDirty(false); };
-  // autosave 0.8s after typing stops (original lost unsaved text when switching dates)
-  useEffect(()=>{ if(!dirty) return; const h=setTimeout(()=>saveNow(),800); return ()=>clearTimeout(h); },[text,dirty]);
-  const switchTo=d=>{ if(cur.current.dirty) saveNow(); setDate(d); setText(diary[d]||""); setDirty(false); window.scrollTo({top:0,behavior:"smooth"}); };
-  useEffect(()=>()=>{ const c=cur.current; if(c.dirty){ /* flush on unmount */ const n={...diary}; if(c.text.trim()) n[c.date]=c.text; else delete n[c.date]; persist(n);} },[]);
+  // Save on every keystroke (synchronous localStorage write) — the old 0.8s debounce lost text on refresh/app close.
+  const write=(d,t)=>persist(prev=>{ const n={...prev}; if(t.trim()) n[d]=t; else delete n[d]; return n; });
+  const saveNow=(d=date,t=text)=>{ write(d,t); setDirty(false); };
+  const onType=t=>{ setText(t); write(date,t); };
+  const switchTo=d=>{ setDate(d); setText(diary[d]||""); setDirty(false); window.scrollTo({top:0,behavior:"smooth"}); };
   const ql=q.trim().toLowerCase();
   const past=Object.keys(diary).sort((a,b)=>b.localeCompare(a)).filter(d=>!ql||diary[d].toLowerCase().includes(ql));
   const words=text.trim()?text.trim().split(/\s+/).length:0;
@@ -23,10 +23,10 @@ export function DiaryView({ diary, persist, toast }){
       {streak>0&&<span className="chip ok">🔥 {streak}d</span>}
     </div>
     <p className="serif muted" style={{fontStyle:"italic",fontSize:"1.1rem",margin:"0 4px 8px"}}>{prettyDate(date)}</p>
-    <textarea aria-label="Diary entry" className="inp" rows={10} style={{background:"var(--panel)",fontSize:16,lineHeight:1.7,padding:14,borderRadius:18}} value={text} onChange={e=>{setText(e.target.value);setDirty(true);}} placeholder="How was today? What happened, what you felt, what you're grateful for…"/>
+    <textarea aria-label="Diary entry" className="inp" rows={10} style={{background:"var(--panel)",fontSize:16,lineHeight:1.7,padding:14,borderRadius:18}} value={text} onChange={e=>onType(e.target.value)} placeholder="How was today? What happened, what you felt, what you're grateful for…"/>
     <div className="row" style={{justifyContent:"space-between",marginTop:8}}>
-      <span className="xs faint">{words} words · {dirty?"saving…":"saved"}</span>
-      <button className="btn primary" disabled={!dirty} onClick={()=>{saveNow();toast("Entry saved");}}><Icon n="save" size={15}/>Save entry</button>
+      <span className="xs faint">{words} words · saved</span>
+      <button className="btn primary" onClick={()=>{saveNow();toast("Entry saved");}}><Icon n="save" size={15}/>Save entry</button>
     </div>
     {Object.keys(diary).length>0&&<>
       <h2 className="sec-h">Past entries</h2>

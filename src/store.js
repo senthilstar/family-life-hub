@@ -1,4 +1,4 @@
-export const K = { areas:"lh2:areas", logs:"lh2:logs", checkins:"lh2:checkins", cats:"lh:categories", diary:"lh:diary", mind:"lh:mind", reportInputs:"lh:report:inputs", reportHistory:"lh:report:history", dailyLog:"lh:daily:log", theme:"lh:theme", settings:"lh2:settings" };
+export const K = { areas:"lh2:areas", logs:"lh2:logs", checkins:"lh2:checkins", cats:"lh:categories", diary:"lh:diary", mind:"lh:mind", reportInputs:"lh:report:inputs", reportHistory:"lh:report:history", dailyLog:"lh:daily:log", theme:"lh:theme", settings:"lh2:settings", seeded:"lh2:seeded" };
 export const ls = {
   get(k,d=null){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch{ return d; } },
   set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ console.warn("storage",e); window.dispatchEvent(new CustomEvent("lh:storage-error")); return false; } },

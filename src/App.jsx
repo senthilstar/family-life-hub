@@ -11,11 +11,21 @@ import { MindView } from "./mind.jsx";
 import { SettingsSheet } from "./settings.jsx";
 
 const TABS=[["today","Today","home"],["areas","Areas","grid"],["report","Report","newspaper"],["diary","Diary","book"],["mind","Mind","sparkles"]];
-const usePersist=(key,init)=>{ const [v,setV]=useState(init); const set=useCallback(n=>{ setV(prev=>{ const val=typeof n==="function"?n(prev):n; ls.set(key,val); return val; }); },[key]); return [v,set]; };
+/* Saves synchronously on every change (outside the React updater, so nothing waits on a render),
+   and every live value is re-flushed on pagehide / visibilitychange=hidden. */
+const LIVE=new Map();
+const flushAll=()=>{ for(const [k,r] of LIVE) ls.set(k,r.current); };
+if(typeof window!=="undefined"){ window.addEventListener("pagehide",flushAll); document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden") flushAll(); }); }
+const usePersist=(key,init)=>{ const [v,setV]=useState(init); const ref=useRef(v); LIVE.set(key,ref);
+  const set=useCallback(n=>{ const val=typeof n==="function"?n(ref.current):n; ref.current=val; ls.set(key,val); setV(val); },[key]); return [v,set]; };
+/* Seed/migrate exactly once (flag), and write it immediately so later loads never re-seed. */
+function loadAreas(){ const saved=ls.get(K.areas); if(Array.isArray(saved)){ if(!ls.get(K.seeded)) ls.set(K.seeded,true); return saved; }
+  if(ls.get(K.seeded)&&localStorage.getItem(K.areas)!=null){ /* unreadable data: keep a copy, don't silently drop it */ try{ localStorage.setItem(K.areas+":corrupt-"+Date.now(),localStorage.getItem(K.areas)); }catch{} }
+  const a=migrateOld(ls.get(K.cats)); ls.set(K.areas,a); ls.set(K.seeded,true); return a; }
 
 export default function App(){
   const [tab,setTab]=useState(()=>{ const h=location.hash.slice(1); return TABS.some(t=>t[0]===h)?h:"today"; });
-  const [areas,setAreas]=usePersist(K.areas, ls.get(K.areas)||migrateOld(ls.get(K.cats)));
+  const [areas,setAreas]=usePersist(K.areas, loadAreas);
   const [logs,setLogs]=usePersist(K.logs, ls.get(K.logs,[]));
   const [checkins,setCheckins]=usePersist(K.checkins, ls.get(K.checkins,{}));
   const [diary,setDiary]=usePersist(K.diary, ls.get(K.diary,{}));
